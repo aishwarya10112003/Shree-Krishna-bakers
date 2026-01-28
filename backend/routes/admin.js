@@ -3,6 +3,11 @@ const adminRouter = Router();
 const Product = require("../models/Product");
 const Order = require("../models/Order");
 const auth = require("../middleware/auth");
+const {
+  validateProduct,
+  validateBulkProducts,
+  validateOrderStatus,
+} = require("../middleware/validate");
 
 const adminCheck = (req, res, next) => {
   if (req.user.role !== "admin") {
@@ -32,11 +37,12 @@ adminRouter.get("/products", auth, adminCheck, async (req, res) => {
   }
 });
 
-//change the order status
+//change the order status - PROTECTED & VALIDATED
 adminRouter.put(
   "/order-status/:orderId",
   auth,
   adminCheck,
+  validateOrderStatus,
   async (req, res) => {
     try {
       const { orderId } = req.params;
@@ -72,8 +78,8 @@ adminRouter.put(
   }
 );
 
-//add a new product
-adminRouter.post("/add_product", auth, adminCheck, async (req, res) => {
+//add a new product - PROTECTED & VALIDATED
+adminRouter.post("/add_product", auth, adminCheck, validateProduct, async (req, res) => {
   try {
     const { name, price, category, image, description } = req.body;
     const newProduct = new Product({
@@ -96,8 +102,8 @@ adminRouter.post("/add_product", auth, adminCheck, async (req, res) => {
     });
   }
 });
-// BULK ADD PRODUCTS (Upload the whole menu at once)
-adminRouter.post("/add-bulk-products", auth, adminCheck, async (req, res) => {
+// BULK ADD PRODUCTS (Upload the whole menu at once) - PROTECTED & VALIDATED
+adminRouter.post("/add-bulk-products", auth, adminCheck, validateBulkProducts, async (req, res) => {
   try {
     // req.body should be an ARRAY of products
     const products = req.body;
@@ -118,19 +124,24 @@ adminRouter.post("/add-bulk-products", auth, adminCheck, async (req, res) => {
   }
 });
 
-//  REMOVE PRODUCT (Real Logic)
-adminRouter.delete("/remove-product/:id", async (req, res) => {
+//  REMOVE PRODUCT (Real Logic) - PROTECTED
+adminRouter.delete("/remove-product/:id", auth, adminCheck, async (req, res) => {
   try {
     const productId = req.params.id; // Get ID from URL
-    await Product.findByIdAndDelete(productId);
+    const product = await Product.findByIdAndDelete(productId);
+    
+    if (!product) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
     res.status(500).json({ error: "Failed to delete product" });
   }
 });
 
-//  TOGGLE AVAILABILITY (Out of Stock / In Stock)
-adminRouter.put("/toggle-stock/:id", async (req, res) => {
+//  TOGGLE AVAILABILITY (Out of Stock / In Stock) - PROTECTED
+adminRouter.put("/toggle-stock/:id", auth, adminCheck, async (req, res) => {
   try {
     const productId = req.params.id;
 

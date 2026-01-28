@@ -1,7 +1,12 @@
 const { Router } = require("express");
 const userRouter = Router();
 const auth = require("../middleware/auth");
-const { validateSignup } = require("../middleware/validate"); // 🟢 Import Zod Middleware
+const {
+  validateSignup,
+  validateSignin,
+  validateVerifyOtp,
+  validatePlaceOrder,
+} = require("../middleware/validate");
 
 // Import Controllers
 const { signup, signin, verifyOtp } = require("../controllers/authController");
@@ -10,23 +15,20 @@ const { signup, signin, verifyOtp } = require("../controllers/authController");
 const Order = require("../models/Order");
 const Product = require("../models/Product");
 
-// 🟢 Apply Validation Middleware to Signup
+// 🟢 Apply Validation Middleware
 userRouter.post("/signup", validateSignup, signup);
-
-// Standard Routes
-userRouter.post("/signin", signin);
-userRouter.post("/verify-otp", verifyOtp);
+userRouter.post("/signin", validateSignin, signin);
+userRouter.post("/verify-otp", validateVerifyOtp, verifyOtp);
 
 // ... (Keep the rest of your Order/Menu routes exactly as they were) ...
-// Place Order Route
-userRouter.post("/place-order", auth, async (req, res) => {
+// Place Order Route - PROTECTED & VALIDATED
+userRouter.post("/place-order", auth, validatePlaceOrder, async (req, res) => {
   try {
     const newOrder = new Order({
       userId: req.user.id,
       items: req.body.items,
       totalAmount: req.body.totalAmount,
-      address:
-        req.body.address || (req.body.tableNo ? "Dine-In" : "Default Address"),
+      address: req.body.address,
       tableNo: req.body.tableNo || "",
     });
     await newOrder.save();
