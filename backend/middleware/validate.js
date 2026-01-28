@@ -35,11 +35,20 @@ const productSchema = z.object({
 });
 
 // 5. Bulk Products Schema
-const bulkProductsSchema = z.array(productSchema).min(1, "At least one product required");
+const bulkProductsSchema = z
+  .array(productSchema)
+  .min(1, "At least one product required");
 
 // 6. Order Item Schema
+// `productId` is optional so that virtual items (like manual \"bestsellers\")
+// that aren't backed by a real Product document can still be ordered. When
+// present it must look like a valid MongoDB ObjectId string so Mongoose
+// doesn't throw a CastError.
 const orderItemSchema = z.object({
-  productId: z.string().min(1, "Product ID is required"),
+  productId: z
+    .string()
+    .regex(/^[0-9a-fA-F]{24}$/, "Product ID must be a valid MongoDB ObjectId")
+    .optional(),
   name: z.string().min(1, "Product name is required"),
   quantity: z.number().int().positive("Quantity must be a positive integer"),
   price: z.number().positive("Price must be positive"),
@@ -58,7 +67,7 @@ const placeOrderSchema = z.object({
 const orderStatusSchema = z.object({
   status: z.enum(
     ["Order Placed", "Preparing", "Out for Delivery", "Delivered", "Cancelled"],
-    { errorMap: () => ({ message: "Invalid status value" }) }
+    { errorMap: () => ({ message: "Invalid status value" }) },
   ),
 });
 

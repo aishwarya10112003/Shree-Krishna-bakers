@@ -3,6 +3,7 @@ const express = require("express");
 const mongoose = require("mongoose");
 const morgan = require("morgan");
 const rateLimit = require("express-rate-limit");
+const path = require("node:path");
 const { userRouter } = require("./routes/user");
 const { adminRouter } = require("./routes/admin");
 const errorHandler = require("./middleware/errorHandler");
@@ -12,12 +13,7 @@ const app = express();
 // ============================================
 // ENVIRONMENT VARIABLE VALIDATION
 // ============================================
-const requiredEnvVars = [
-  "MONGO_URI",
-  "JWT_SECRET",
-  "EMAIL_USER",
-  "EMAIL_PASS",
-];
+const requiredEnvVars = ["MONGO_URI", "JWT_SECRET", "EMAIL_USER", "EMAIL_PASS"];
 
 const missingVars = requiredEnvVars.filter((varName) => !process.env[varName]);
 
@@ -41,7 +37,8 @@ app.use((req, res, next) => {
 // CORS Configuration (manual, Express 5 compatible)
 // Dev: allow all localhost ports
 // Prod: allow only FRONTEND_URL (comma-separated)
-const isDevelopment = process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
+const isDevelopment =
+  process.env.NODE_ENV === "development" || !process.env.NODE_ENV;
 const allowedOrigins = process.env.FRONTEND_URL
   ? process.env.FRONTEND_URL.split(",").map((u) => u.trim())
   : [];
@@ -69,12 +66,12 @@ app.use((req, res, next) => {
     }
     res.setHeader(
       "Access-Control-Allow-Methods",
-      "GET,POST,PUT,PATCH,DELETE,OPTIONS"
+      "GET,POST,PUT,PATCH,DELETE,OPTIONS",
     );
     res.setHeader(
       "Access-Control-Allow-Headers",
       req.headers["access-control-request-headers"] ||
-        "Content-Type, x-auth-token"
+        "Content-Type, x-auth-token",
     );
   }
 
@@ -132,14 +129,30 @@ app.use(express.urlencoded({ extended: true, limit: "10mb" }));
 // ROUTES
 // ============================================
 
-app.get("/", (req, res) => {
-  res.json({
-    message: "Shree Krishna Bakers API is running...",
-    version: "1.0.0",
-    environment: process.env.NODE_ENV || "development",
-  });
-});
+// In production, serve the built React app from backend
+const isProductionEnv = process.env.NODE_ENV === "production";
+const distPath = path.join(__dirname, "..", "dist");
 
+if (isProductionEnv) {
+  // Serve static assets (JS, CSS, images) from Vite build
+  app.use(express.static(distPath));
+
+  // Serve the SPA entrypoint for the root path
+  app.get("/", (req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+} else {
+  // In development, keep a simple JSON health check on `/`
+  app.get("/", (req, res) => {
+    res.json({
+      message: "Shree Krishna Bakers API is running...",
+      version: "1.0.0",
+      environment: process.env.NODE_ENV || "development",
+    });
+  });
+}
+
+// API routes (kept under /api to avoid clashing with frontend routes)
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/admin", adminRouter);
 
@@ -171,11 +184,21 @@ mongoose
       console.log(`🚀 Server running on port ${PORT}`);
       console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
       console.log(`🌐 CORS Configuration:`);
-      if (isDevelopment && Array.isArray(allowedOrigins) && allowedOrigins[0] instanceof RegExp) {
+
+      if (isDevelopment && !process.env.FRONTEND_URL) {
+        // In development without FRONTEND_URL we allow all localhost/127.0.0.1 origins.
+        // This matches the logic in isAllowedOrigin and avoids misleading logs.
         console.log(`   - Development mode: Allowing all localhost ports`);
       } else {
-        console.log(`   - Allowed origins: ${allowedOrigins.join(", ") || "None (configure FRONTEND_URL)"}`);
+        console.log(
+          `   - Allowed origins: ${
+            allowedOrigins.length > 0
+              ? allowedOrigins.join(", ")
+              : "None (configure FRONTEND_URL)"
+          }`,
+        );
       }
+
       if (!process.env.FRONTEND_URL && !isDevelopment) {
         console.warn(`   ⚠️  FRONTEND_URL not set. Set it in production!`);
       }
