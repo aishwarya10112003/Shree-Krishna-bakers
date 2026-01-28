@@ -1,9 +1,11 @@
-
 import React from "react";
+import { useCart } from "../context/CartContext";
 
-const BestsellerCard = ({ name, price, icon }) => {
+const BestsellerCard = ({ item, onAdd }) => {
+  const { name, price, icon } = item;
+
   return (
-    <div className="flex flex-col justify-center items-center bg-white min-w-[160px] rounded-xl border border-gray-100  p-3 shadow-sm">
+    <div className="flex flex-col justify-center items-center bg-white min-w-[160px] rounded-xl border border-gray-100 p-3 shadow-sm">
       {/*  icon container */}
       <div className="rounded-xl w-full aspect-square bg-gray-50 flex items-center justify-center mb-3">
         <span className="text-4xl">{icon}</span>
@@ -17,7 +19,10 @@ const BestsellerCard = ({ name, price, icon }) => {
           {" "}
           ₹ {price}
         </span>
-        <button className=" w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded-full font-bold text-xl hover:bg-orange-600 hover:text-white transition-colors duration-200">
+        <button
+          onClick={onAdd}
+          className="w-8 h-8 flex items-center justify-center bg-orange-100 text-orange-600 rounded-full font-bold text-xl hover:bg-orange-600 hover:text-white transition-colors duration-200 active:scale-95"
+        >
           +
         </button>
       </div>
@@ -27,13 +32,29 @@ const BestsellerCard = ({ name, price, icon }) => {
 
 const Bestsellers = () => {
   const items = [
-    { id: 1, name: "Paneer Blast Pizza", price: 260, icon: "🍕" },
-    { id: 2, name: "Choco Brownie...", price: 450, icon: "🎂" },
-    { id: 3, name: "Cheese Sandwich", price: 70, icon: "🥪" },
-    { id: 4, name: "cheese burger", price: 260, icon: "🍕" },
-    { id: 5, name: "chowmien", price: 450, icon: "🎂" },
-    { id: 6, name: "patties", price: 70, icon: "🥪" },
+    // These are \"virtual\" products that mirror your menu items.
+    // They use `id` so CartContext can treat them like real products.
+    { id: "bestseller-1", name: "Paneer Blast Pizza", price: 260, icon: "🍕" },
+    { id: "bestseller-2", name: "Choco Brownie...", price: 450, icon: "🎂" },
+    { id: "bestseller-3", name: "Cheese Sandwich", price: 70, icon: "🥪" },
+    { id: "bestseller-4", name: "Cheese Burger", price: 260, icon: "🍔" },
+    { id: "bestseller-5", name: "Chowmein", price: 120, icon: "🍜" },
+    { id: "bestseller-6", name: "Veg Patties", price: 50, icon: "🥟" },
   ];
+
+  const { addToCart } = useCart();
+
+  // Normalize a bestseller item into a cart-compatible product object
+  const handleAdd = (item) => {
+    addToCart({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      image: item.icon,
+      category: "Bestseller",
+    });
+  };
+
   return (
     <>
       <div className="w-full max-w-full overflow-hidden px-5 py-4 mb-4 ">
@@ -45,9 +66,8 @@ const Bestsellers = () => {
           {items.map((item) => (
             <BestsellerCard
               key={item.id}
-              name={item.name}
-              price={item.price}
-              icon={item.icon}
+              item={item}
+              onAdd={() => handleAdd(item)}
             />
           ))}
         </div>
