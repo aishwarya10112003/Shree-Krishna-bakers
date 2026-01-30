@@ -156,6 +156,12 @@ if (isProductionEnv) {
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/admin", adminRouter);
 
+if (process.env.NODE_ENV === "production") {
+  // ✅ NEW (Fixes the crash)
+  app.get(/(.*)/, (req, res) => {
+    res.sendFile(path.join(distPath, "index.html"));
+  });
+}
 // 404 Handler - Must be after all routes
 app.use((req, res) => {
   res.status(404).json({
