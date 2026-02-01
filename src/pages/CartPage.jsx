@@ -47,13 +47,24 @@ const CartPage = () => {
 
     try {
       // 2. Prepare Data for Backend
+      // NOTE: Only send a MongoDB ObjectId as `productId` when we actually
+      // have one (real products). Virtual items like \"bestsellers\" only
+      // send name/price/quantity so Mongoose doesn't try to cast an invalid
+      // string such as \"bestseller-1\" to ObjectId.
       const orderData = {
-        items: cartItems.map((item) => ({
-          productId: item._id || item.id, // Sends ID correctly
-          name: item.name,
-          quantity: item.quantity,
-          price: item.price,
-        })),
+        items: cartItems.map((item) => {
+          const payload = {
+            name: item.name,
+            quantity: item.quantity,
+            price: item.price,
+          };
+
+          if (item._id) {
+            payload.productId = item._id;
+          }
+
+          return payload;
+        }),
         totalAmount: total,
         // 🟢 Logic: If Admin, Address is "Dine-In", else "Default Address"
         address: userRole === "admin" ? "Dine-In" : "Default Address",

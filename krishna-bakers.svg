@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Shree Krishna Bakers</title>
+  <desc id="desc">Logo icon for Shree Krishna Bakers</desc>
+  <defs>
+    <linearGradient id="bgGrad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#fb923c"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Rounded background -->
+  <rect x="4" y="4" width="120" height="120" rx="32" ry="32" fill="url(#bgGrad)"/>
+
+  <!-- Wheat / bakery motif -->
+  <g transform="translate(26,28)" stroke="#fff7ed" stroke-width="3" stroke-linecap="round">
+    <path d="M12 60 C 6 46 6 34 12 22 C 18 10 26 6 32 4" fill="none"/>
+    <path d="M22 60 C 28 46 28 34 22 22 C 16 10 8 6 2 4" fill="none"/>
+    <line x1="17" y1="18" x2="17" y2="64"/>
+  </g>
+
+  <!-- Stylized K letter for Krishna -->
+  <path d="M76 96 L64 96 L64 34 Q64 28 70 28 Q76 28 76 34 Z" fill="#fffbeb"/>
+  <path d="M80 64 L96 44 Q100 40 104 44 Q108 48 104 52 L92 66 L106 84 Q110 88 106 92 Q102 96 98 92 L84 74 Z" fill="#fffbeb"/>
+</svg>
+

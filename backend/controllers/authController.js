@@ -3,11 +3,10 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const { sendOTP } = require("../utils/Nodemailer"); // Import your mailer
 
-// 🔒 Temporary Memory to store OTPs before saving to DB
-// Format: { "email@gmail.com": { name, password, phone, otp } }
-let otpStore = {};
+// OTP Configuration
+const OTP_EXPIRY_MINUTES = 10; // OTP expires in 10 minutes
 
-// 🟢 1. SIGNUP (Validate -> Send OTP -> Store in Memory)
+// 🟢 1. SIGNUP (Validate -> Send OTP -> Store in Database)
 exports.signup = async (req, res) => {
   try {
     // Data is already validated by your middleware before reaching here!
@@ -15,32 +14,53 @@ exports.signup = async (req, res) => {
 
     // Check if user already exists in MongoDB
     let user = await User.findOne({ email });
-    if (user) return res.status(400).json({ msg: "User already exists" });
+    if (user && user.isVerified) {
+      return res.status(400).json({ msg: "User already exists" });
+    }
 
     // Generate 6-digit OTP
     const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
 
-    // Send Email
-    const isSent = await sendOTP(email, generatedOtp);
-    if (!isSent) {
-      return res
-        .status(500)
-        .json({ msg: "Failed to send email. Check credentials." });
-    }
+    // Calculate OTP expiry time
+    const otpExpiry = new Date();
+    otpExpiry.setMinutes(otpExpiry.getMinutes() + OTP_EXPIRY_MINUTES);
 
     // Hash Password NOW (Security best practice)
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Save to Temporary Memory (NOT MongoDB yet)
-    otpStore[email] = {
-      name,
-      email,
-      password: hashedPassword,
-      phone,
-      otp: generatedOtp,
-      createdAt: Date.now(),
-    };
+    // If user exists but not verified, update their data
+    // Otherwise, create a new unverified user
+    if (user && !user.isVerified) {
+      user.name = name;
+      user.password = hashedPassword;
+      user.phone = phone;
+      user.otp = generatedOtp;
+      user.otpExpiry = otpExpiry;
+      await user.save();
+    } else {
+      // Create new unverified user with OTP stored in database
+      user = new User({
+        name,
+        email,
+        password: hashedPassword,
+        phone,
+        otp: generatedOtp,
+        otpExpiry: otpExpiry,
+        isVerified: false,
+      });
+      await user.save();
+    }
+
+    // Send Email
+    const isSent = await sendOTP(email, generatedOtp);
+    if (!isSent) {
+      // If email fails, clean up the user record
+      await User.findByIdAndDelete(user._id);
+      return res
+        .status(500)
+        .json({ msg: "Failed to send email. Check credentials." });
+    }
 
     console.log(`📩 OTP sent to ${email}`);
 
@@ -53,40 +73,57 @@ exports.signup = async (req, res) => {
   }
 };
 
-// 🟢 2. VERIFY OTP (Check Memory -> Save to MongoDB)
+// 🟢 2. VERIFY OTP (Check Database -> Verify -> Mark as Verified)
 exports.verifyOtp = async (req, res) => {
   try {
     const { email, otp } = req.body;
 
-    // Check if we have a pending signup for this email
-    const pendingUser = otpStore[email];
+    // Find user with this email
+    const user = await User.findOne({ email });
 
-    if (!pendingUser) {
+    if (!user) {
       return res
         .status(400)
         .json({
-          msg: "Session expired or invalid email. Please signup again.",
+          msg: "No signup found for this email. Please signup again.",
         });
     }
 
+    // Check if user is already verified
+    if (user.isVerified) {
+      return res.status(400).json({ msg: "Email already verified. Please login." });
+    }
+
+    // Check if OTP exists
+    if (!user.otp) {
+      return res
+        .status(400)
+        .json({
+          msg: "No OTP found. Please request a new OTP by signing up again.",
+        });
+    }
+
+    // Check if OTP has expired
+    if (user.otpExpiry && new Date() > user.otpExpiry) {
+      // Clear expired OTP
+      user.otp = undefined;
+      user.otpExpiry = undefined;
+      await user.save();
+      return res.status(400).json({
+        msg: "OTP has expired. Please signup again to receive a new OTP.",
+      });
+    }
+
     // Check if OTP matches
-    if (pendingUser.otp !== otp) {
+    if (user.otp !== otp) {
       return res.status(400).json({ msg: "Invalid OTP" });
     }
 
-    // OTP IS CORRECT! Now we save to MongoDB.
-    const newUser = new User({
-      name: pendingUser.name,
-      email: pendingUser.email,
-      password: pendingUser.password, // Already hashed
-      phone: pendingUser.phone,
-      isVerified: true,
-    });
-
-    await newUser.save();
-
-    // Clear the memory
-    delete otpStore[email];
+    // OTP IS CORRECT! Mark user as verified and clear OTP
+    user.isVerified = true;
+    user.otp = undefined;
+    user.otpExpiry = undefined;
+    await user.save();
 
     res
       .status(200)
@@ -105,6 +142,13 @@ exports.signin = async (req, res) => {
     // Find user
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ msg: "Invalid Credentials" });
+
+    // Check if user is verified
+    if (!user.isVerified) {
+      return res.status(403).json({
+        msg: "Email not verified. Please verify your email first.",
+      });
+    }
 
     // Check Password
     const isMatch = await bcrypt.compare(password, user.password);

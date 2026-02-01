@@ -15,6 +15,7 @@ import AdminLayout from "./admin/layout/AdminLayout";
 import MenuManagement from "./admin/pages/MenuManage"; // 👈 The Real Component
 import KitchenBoard from "./admin/pages/KitchenBoard";
 import SaleAnalatics from "./admin/pages/Analytics";
+import ProtectedRoute from "./components/ProtectedRoute";
 import "./App.css";
 
 
@@ -33,8 +34,15 @@ function AnimatedRoutes() {
         <Route path="/menu" element={<MenuPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/account" element={<Account />} />
-        {/* ADMIN ROUTES */}
-        <Route path="/admin" element={<AdminLayout />}>
+        {/* ADMIN ROUTES - PROTECTED */}
+        <Route
+          path="/admin"
+          element={
+            <ProtectedRoute requireAdmin={true}>
+              <AdminLayout />
+            </ProtectedRoute>
+          }
+        >
           {/* Index Route: What shows up when you just go to /admin */}
           <Route
             index
