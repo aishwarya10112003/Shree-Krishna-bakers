@@ -1,0 +1,32 @@
+{
+  "compilerOptions": {
+    /* Output a modern JS version that Node 22 runs natively. */
+    "target": "ES2022",
+    "lib": ["ES2022"],
+
+    /* CommonJS keeps things simple: __dirname works, no .js import extensions
+       needed, and interop with packages like express/jsonwebtoken is painless. */
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "resolveJsonModule": true,
+
+    /* Where compiled JS goes when we run `npm run build`. */
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "sourceMap": true,
+    "declaration": false,
+
+    /* Strictness = the whole point of TypeScript. This catches the class of
+       bugs (like `i.qty` vs `i.quantity`) before the code ever runs. */
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": false,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

@@ -1,0 +1,150 @@
+// ---------------------------------------------------------------------------
+// Prisma schema — the single source of truth for the database.
+//
+// `prisma migrate dev` reads this file and generates SQL migrations + a fully
+// typed client. Every field/relation/index below becomes type-safe in code.
+// ---------------------------------------------------------------------------
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Enums map cleanly to Postgres enum types. Note: identifiers can't contain
+// spaces, so the API serializes these to display strings ("ORDER_PLACED" ->
+// "Order Placed") to keep the existing frontend untouched.
+enum Role {
+  CUSTOMER
+  ADMIN
+}
+
+enum OrderStatus {
+  ORDER_PLACED
+  PREPARING
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELLED
+}
+
+model User {
+  id         String    @id @default(cuid())
+  name       String
+  email      String    @unique
+  password   String // bcrypt hash, never plaintext
+  phone      String
+  role       Role      @default(CUSTOMER)
+  isVerified Boolean   @default(false)
+  // OTP is stored HASHED with an expiry — never in plaintext.
+  otpHash    String?
+  otpExpiry  DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  orders        Order[]
+  refreshTokens RefreshToken[]
+  auditLogs     AuditLog[]
+}
+
+model Product {
+  id            String    @id @default(cuid())
+  name          String
+  price         Int // whole rupees (avoids floating-point money bugs)
+  category      String
+  image         String // emoji or image URL
+  description   String?
+  isAvailable   Boolean   @default(true)
+  isBestseller  Boolean   @default(false)
+  stockQuantity Int       @default(0)
+  deletedAt     DateTime? // soft delete: set instead of physically removing
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([category]) // menu is filtered by category
+  @@index([isBestseller]) // bestsellers query
+  @@index([deletedAt]) // soft-delete filter
+}
+
+model Order {
+  id          String      @id @default(cuid())
+  userId      String
+  user        User        @relation(fields: [userId], references: [id])
+  totalAmount Int // SERVER-computed in whole rupees (never trusted from client)
+  address     String
+  tableNo     String?
+  status      OrderStatus @default(ORDER_PLACED)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  items OrderItem[]
+
+  @@index([userId]) // "my orders"
+  @@index([status]) // kitchen board / delivered history
+  @@index([createdAt]) // analytics by date
+}
+
+model OrderItem {
+  id       String  @id @default(cuid())
+  orderId  String
+  order    Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  // Nullable so a soft-deleted product still keeps its historical line item.
+  productId String?
+  product   Product? @relation(fields: [productId], references: [id])
+  name     String // snapshot of the name at purchase time
+  price    Int // snapshot of the price at purchase time
+  quantity Int
+  image    String?
+
+  @@index([orderId])
+}
+
+// Refresh-token rotation: each issued refresh token is stored hashed so it can
+// be revoked (logout) and rotated. Access tokens stay short-lived & stateless.
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// Idempotency: a replayed POST /place-order (double-tap, network retry) with
+// the same key returns the stored response instead of creating a duplicate.
+model IdempotencyKey {
+  id           String   @id @default(cuid())
+  key          String   @unique
+  userId       String
+  method       String
+  path         String
+  requestHash  String
+  statusCode   Int
+  responseBody Json
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// Audit log: who did what (admin actions) for security/compliance.
+model AuditLog {
+  id        String   @id @default(cuid())
+  actorId   String?
+  actor     User?    @relation(fields: [actorId], references: [id])
+  action    String // e.g. "product.delete", "order.status_change"
+  entity    String // e.g. "Product", "Order"
+  entityId  String?
+  metadata  Json?
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entity])
+}
