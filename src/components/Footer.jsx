@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Home, UtensilsCrossed,  User, ShoppingBag } from "lucide-react";
 import { NavLink } from "react-router-dom";
 

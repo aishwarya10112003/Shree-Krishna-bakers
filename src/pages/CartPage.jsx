@@ -1,93 +1,78 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useRef } from "react";
 import { useCart } from "../context/CartContext";
 import { motion } from "framer-motion";
 import { useNavigate } from "react-router-dom";
-import api from "../utils/api";
+import toast from "react-hot-toast";
 import OrderSuccess from "../components/OrderSuccess";
+import { useAuth } from "../context/AuthContext";
+import { usePlaceOrder } from "../hooks/useOrders";
 
 const CartPage = () => {
   const { cartItems, getCartTotal, clearCart } = useCart();
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const { user, isAuthenticated } = useAuth();
+  const placeOrder = usePlaceOrder();
+
   const [showSuccess, setShowSuccess] = useState(false);
-
-  // 🟢 NEW: State for Admin/Table logic
   const [tableNo, setTableNo] = useState("");
-  const [userRole, setUserRole] = useState("user");
 
-  // 1. Check User Role on Load
-  useEffect(() => {
-    const user = JSON.parse(localStorage.getItem("user"));
-    if (user) setUserRole(user.role);
-  }, []);
+  // One idempotency key per checkout; reused across retries / double-taps so the
+  // server can never create a duplicate order. Reset after a successful order.
+  const idempotencyKeyRef = useRef(crypto?.randomUUID?.() ?? String(Date.now()));
 
-  // 2. Calculate Totals
+  const userRole = user?.role || "user";
+  const loading = placeOrder.isPending;
+
+  // Calculate Totals (display only — the server recomputes the authoritative total)
   const subtotal = getCartTotal();
-  // Logic: Admins (Dine-in) pay 0 delivery fee, Users pay 40
   const delivery = userRole === "admin" ? 0 : subtotal > 0 ? 40 : 0;
   const total = subtotal + delivery;
 
-  // --- HANDLE ORDER LOGIC ---
   const handlePlaceOrder = async () => {
-    // 1. Check Login
-    const token = localStorage.getItem("token");
-    if (!token) {
-      alert("Please login to place an order!");
+    if (!isAuthenticated) {
+      toast.error("Please login to place an order!");
       navigate("/account");
       return;
     }
 
-    // 🟢 VALIDATION: If Admin, Table Number is mandatory
     if (userRole === "admin" && !tableNo) {
-      alert("⚠️ Please select a Table Number for this order!");
+      toast.error("⚠️ Please select a Table Number for this order!");
       return;
     }
 
-    setLoading(true);
+    const orderData = {
+      idempotencyKey: idempotencyKeyRef.current,
+      items: cartItems.map((item) => {
+        const payload = {
+          name: item.name,
+          quantity: item.quantity,
+          price: item.price,
+        };
+        if (item._id) payload.productId = item._id;
+        return payload;
+      }),
+      totalAmount: total,
+      address: userRole === "admin" ? "Dine-In" : "Default Address",
+      tableNo: userRole === "admin" ? tableNo : "",
+    };
 
     try {
-      // 2. Prepare Data for Backend
-      // NOTE: Only send a MongoDB ObjectId as `productId` when we actually
-      // have one (real products). Virtual items like \"bestsellers\" only
-      // send name/price/quantity so Mongoose doesn't try to cast an invalid
-      // string such as \"bestseller-1\" to ObjectId.
-      const orderData = {
-        items: cartItems.map((item) => {
-          const payload = {
-            name: item.name,
-            quantity: item.quantity,
-            price: item.price,
-          };
-
-          if (item._id) {
-            payload.productId = item._id;
-          }
-
-          return payload;
-        }),
-        totalAmount: total,
-        // 🟢 Logic: If Admin, Address is "Dine-In", else "Default Address"
-        address: userRole === "admin" ? "Dine-In" : "Default Address",
-        tableNo: userRole === "admin" ? tableNo : "",
-      };
-
-      // 3. Send Request
-      await api.post("/user/place-order", orderData);
-
-      // 4. Success Handling
-      setLoading(false);
+      await placeOrder.mutateAsync(orderData);
       setShowSuccess(true);
       clearCart();
+      // Fresh key so the next order isn't treated as a replay of this one.
+      idempotencyKeyRef.current = crypto?.randomUUID?.() ?? String(Date.now());
     } catch (error) {
-      console.error("Order Failed:", error);
-      alert(error.response?.data?.error || "Failed to place order. Try again.");
-      setLoading(false);
+      toast.error(
+        error.response?.data?.error ||
+          error.response?.data?.msg ||
+          "Failed to place order. Try again.",
+      );
     }
   };
 
   const handleCloseSuccess = () => {
     setShowSuccess(false);
-    // Logic: Admin -> Back to Menu (for next order), User -> Account (to track order)
     if (userRole === "admin") {
       navigate("/menu");
     } else {

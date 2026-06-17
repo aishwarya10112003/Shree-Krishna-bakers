@@ -1,74 +1,41 @@
-import React, { useState, useEffect } from "react";
-import api from "../../utils/api";
+import React from "react";
 import toast from "react-hot-toast";
+import { useAdminOrders, useUpdateOrderStatus } from "../../hooks/useAdmin";
 
 // SOUND URL
 const ALERT_SOUND =
   "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
 
 const KitchenBoard = () => {
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(true);
+  // Live data via React Query (auto-refetch every 10s, pauses on hidden tabs).
+  const { data: allOrders = [] } = useAdminOrders();
+  const updateStatus = useUpdateOrderStatus();
 
-  // 1. FETCH ORDERS
-  const fetchOrders = async () => {
-    try {
-      const res = await api.get("/admin/orders");
-      // Keep only active orders
-      const activeOrders = res.data.orders.filter(
-        (o) => o.status !== "Delivered" && o.status !== "Cancelled",
-      );
-      setOrders(activeOrders);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching orders:", error);
-    }
-  };
+  // Only active orders belong on the board.
+  const orders = allOrders.filter(
+    (o) => o.status !== "Delivered" && o.status !== "Cancelled",
+  );
 
-  // 2. POLLING (Auto-refresh)
-  useEffect(() => {
-    fetchOrders();
-    const interval = setInterval(fetchOrders, 10000);
-    return () => clearInterval(interval);
-  }, []);
-
-  // 3. SOUND
   const playSound = () => {
     const audio = new Audio(ALERT_SOUND);
     audio.play().catch((e) => console.log("Audio play blocked", e));
   };
 
-  // 4. STATUS UPDATE HANDLER
-  const handleStatusUpdate = async (orderId, newStatus) => {
-    try {
-      // Optimistic Update
-      setOrders((prev) =>
-        prev.map((o) => (o._id === orderId ? { ...o, status: newStatus } : o)),
-      );
-
-      // Remove from list if Delivered
-      if (newStatus === "Delivered") {
-        setTimeout(() => {
-          setOrders((prev) => prev.filter((o) => o._id !== orderId));
-        }, 500);
-      }
-
-      playSound();
-      await api.put(`/admin/order-status/${orderId}`, { status: newStatus });
-      toast.success(`Order updated`);
-    } catch (error) {
-      console.error("Status update failed", error);
-      toast.error("Failed to update status");
-      fetchOrders();
-    }
+  const handleStatusUpdate = (orderId, newStatus) => {
+    playSound();
+    updateStatus.mutate(
+      { orderId, status: newStatus },
+      {
+        onSuccess: () => toast.success("Order updated"),
+        onError: () => toast.error("Failed to update status"),
+      },
+    );
   };
 
-  // --- FILTER ORDERS ---
   // Online orders go to Kanban, Table orders go to bottom grid
   const deliveryOrders = orders.filter((o) => !o.tableNo);
   const dineInOrders = orders.filter((o) => o.tableNo);
 
-  // --- STYLES FOR DELIVERY BADGES ---
   const STATUS_STYLES = {
     blue: {
       badge: "bg-blue-100 text-blue-600",
@@ -84,7 +51,6 @@ const KitchenBoard = () => {
     },
   };
 
-  // COMPONENT: CARD FOR DELIVERY FLOW
   const DeliveryCard = ({ order, nextStatus, buttonText, colorType }) => {
     const styles = STATUS_STYLES[colorType];
     return (
@@ -128,7 +94,6 @@ const KitchenBoard = () => {
     );
   };
 
-  // COMPONENT: CARD FOR DINE-IN (Simple "Done" Button)
   const DineInCard = ({ order }) => (
     <div className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm hover:shadow-md transition-shadow flex flex-col justify-between h-full">
       <div>

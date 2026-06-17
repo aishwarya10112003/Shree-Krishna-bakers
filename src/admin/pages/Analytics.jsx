@@ -1,5 +1,4 @@
-import React, { useEffect, useState } from "react";
-import api from "../../utils/api";
+import React from "react";
 import {
   AreaChart,
   Area,
@@ -9,25 +8,13 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { useAnalytics } from "../../hooks/useAdmin";
 
 const SalesAnalytics = () => {
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  // React Query handles fetch/loading/caching for the dashboard data.
+  const { data, isLoading: loading } = useAnalytics();
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const res = await api.get("/admin/analytics");
-        setData(res.data);
-        setLoading(false);
-      } catch (error) {
-        console.error("Analytics Error", error);
-      }
-    };
-    fetchData();
-  }, []);
-
-  if (loading)
+  if (loading || !data)
     return (
       <div className="flex h-screen items-center justify-center text-gray-400 text-sm animate-pulse">
         Loading Dashboard Data...
@@ -245,7 +232,7 @@ const SalesAnalytics = () => {
                       {order.userId?.name || "Guest User"}
                     </td>
                     <td className="p-4 text-xs max-w-[200px] truncate">
-                      {order.items.map((i) => `${i.qty}x ${i.name}`).join(", ")}
+                      {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
                     </td>
                     <td className="p-4 font-bold text-gray-800">
                       ₹{order.totalAmount}

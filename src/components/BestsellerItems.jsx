@@ -1,5 +1,6 @@
 import React from "react";
 import { useCart } from "../context/CartContext";
+import { useBestsellers } from "../hooks/useMenu";
 
 const BestsellerCard = ({ item, onAdd }) => {
   const { name, price, icon } = item;
@@ -31,29 +32,10 @@ const BestsellerCard = ({ item, onAdd }) => {
 };
 
 const Bestsellers = () => {
-  const items = [
-    // These are \"virtual\" products that mirror your menu items.
-    // They use `id` so CartContext can treat them like real products.
-    { id: "bestseller-1", name: "Paneer Blast Pizza", price: 260, icon: "🍕" },
-    { id: "bestseller-2", name: "Choco Brownie...", price: 450, icon: "🎂" },
-    { id: "bestseller-3", name: "Cheese Sandwich", price: 70, icon: "🥪" },
-    { id: "bestseller-4", name: "Cheese Burger", price: 260, icon: "🍔" },
-    { id: "bestseller-5", name: "Chowmein", price: 120, icon: "🍜" },
-    { id: "bestseller-6", name: "Veg Patties", price: 50, icon: "🥟" },
-  ];
-
+  // Bestsellers are now real DB products (isBestseller=true), so each one has a
+  // real productId — required for the server-side price check at checkout.
+  const { data: products = [], isLoading } = useBestsellers();
   const { addToCart } = useCart();
-
-  // Normalize a bestseller item into a cart-compatible product object
-  const handleAdd = (item) => {
-    addToCart({
-      id: item.id,
-      name: item.name,
-      price: item.price,
-      image: item.icon,
-      category: "Bestseller",
-    });
-  };
 
   return (
     <>
@@ -63,13 +45,24 @@ const Bestsellers = () => {
         {/* body of bestsellers */}
 
         <div className="flex overflow-x-auto gap-4 pb-4 no-scrollbar">
-          {items.map((item) => (
-            <BestsellerCard
-              key={item.id}
-              item={item}
-              onAdd={() => handleAdd(item)}
-            />
-          ))}
+          {isLoading
+            ? [1, 2, 3, 4].map((i) => (
+                <div
+                  key={i}
+                  className="min-w-[160px] h-[210px] bg-gray-100 rounded-xl animate-pulse"
+                />
+              ))
+            : products.map((product) => (
+                <BestsellerCard
+                  key={product._id}
+                  item={{
+                    name: product.name,
+                    price: product.price,
+                    icon: product.image,
+                  }}
+                  onAdd={() => addToCart(product)}
+                />
+              ))}
         </div>
       </div>
     </>

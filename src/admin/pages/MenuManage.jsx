@@ -1,84 +1,52 @@
-import React, { useState, useEffect, useMemo } from "react";
-import api from "../../utils/api";
-import AddDishModal from "../components/AddDishModal"; // Import your Modal
+import React, { useState, useMemo } from "react";
+import toast from "react-hot-toast";
+import AddDishModal from "../components/AddDishModal";
+import {
+  useAdminProducts,
+  useToggleStock,
+  useDeleteProduct,
+} from "../../hooks/useAdmin";
 
 const MenuManagement = () => {
-  // --- 1. STATE MANAGEMENT ---
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [isModalOpen, setIsModalOpen] = useState(false); // Controls the popup
+  // --- 1. DATA (React Query) ---
+  const { data: products = [], isLoading: loading } = useAdminProducts();
+  const toggleStock = useToggleStock();
+  const deleteProduct = useDeleteProduct();
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [activeCategory, setActiveCategory] = useState("All");
 
-  // --- 2. FETCH DATA (READ) ---
-  const fetchProducts = async () => {
-    try {
-      const res = await api.get("/admin/products");
-      // Handle response structure { products: [...] }
-      const data = res.data.products || res.data || [];
-      setProducts(data);
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching menu:", error);
-      setLoading(false);
-    }
+  // --- 2. TOGGLE STOCK ---
+  const handleToggleStock = (id) => {
+    toggleStock.mutate(id, {
+      onError: () => toast.error("Failed to update stock"),
+    });
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  // --- 3. TOGGLE STOCK (UPDATE) ---
-  const handleToggleStock = async (id) => {
-    try {
-      // A. Optimistic Update: Update UI immediately so it feels instant
-      const updatedProducts = products.map((p) =>
-        p._id === id ? { ...p, isAvailable: !p.isAvailable } : p
-      );
-      setProducts(updatedProducts);
-
-      // B. API Call: Tell Backend to flip the switch
-      await api.put(`/admin/toggle-stock/${id}`);
-    } catch (error) {
-      console.error("Stock update failed", error);
-      alert("Failed to update stock");
-      fetchProducts(); // Revert changes if server fails
-    }
-  };
-
-  // --- 4. DELETE PRODUCT (DELETE) ---
-  const handleDelete = async (id) => {
-    if (
-      !window.confirm("Are you sure you want to permanently delete this item?")
-    )
+  // --- 3. DELETE PRODUCT ---
+  const handleDelete = (id) => {
+    if (!window.confirm("Are you sure you want to permanently delete this item?"))
       return;
-
-    try {
-      // A. API Call
-      await api.delete(`/admin/remove-product/${id}`);
-
-      // B. UI Update: Remove item from list without reloading
-      setProducts(products.filter((p) => p._id !== id));
-    } catch (error) {
-      console.error("Delete failed", error);
-      alert("Could not delete product");
-    }
+    deleteProduct.mutate(id, {
+      onSuccess: () => toast.success("Product deleted"),
+      onError: () => toast.error("Could not delete product"),
+    });
   };
 
-  // --- 5. DYNAMIC CATEGORIES ---
+  // --- 4. DYNAMIC CATEGORIES ---
   const dynamicCategories = useMemo(() => {
     if (!products.length) return ["All"];
     const allCats = products.map((p) => p.category);
-    // Remove duplicates and sort
     return ["All", ...[...new Set(allCats)].sort()];
   }, [products]);
 
-  // --- 6. FILTER LOGIC ---
+  // --- 5. FILTER LOGIC ---
   const filteredProducts =
     activeCategory === "All"
       ? products
       : products.filter((p) => p.category === activeCategory);
 
-  // --- 7. IMAGE HELPER (URL vs EMOJI) ---
+  // --- 6. IMAGE HELPER (URL vs EMOJI) ---
   const renderImage = (imgString) => {
     if (!imgString)
       return (
@@ -87,7 +55,6 @@ const MenuManagement = () => {
         </div>
       );
 
-    // Check if it's a URL (http/https)
     if (imgString.startsWith("http")) {
       return (
         <img
@@ -97,7 +64,6 @@ const MenuManagement = () => {
         />
       );
     }
-    // Assume it's an Emoji
     return (
       <div className="bg-orange-50 w-full h-full flex items-center justify-center text-6xl group-hover:scale-110 transition-transform duration-500">
         {imgString}
@@ -239,11 +205,9 @@ const MenuManagement = () => {
       )}
 
       {/* --- ADD DISH MODAL --- */}
-      {/* When successful, calls fetchProducts to update the grid instantly */}
       <AddDishModal
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
-        onProductAdded={fetchProducts}
         existingCategories={dynamicCategories.filter((c) => c !== "All")}
       />
     </div>

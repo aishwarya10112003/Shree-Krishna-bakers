@@ -1,140 +1,84 @@
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import AuthForm from "../components/AuthForm";
 import api from "../utils/api";
+import toast from "react-hot-toast";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
+import { useMyOrders } from "../hooks/useOrders";
 
 const Accounts = () => {
   const navigate = useNavigate();
-
-  // --- States ---
-  const [user, setUser] = useState(null);
-  const [token, setToken] = useState(null);
+  const { user, isAuthenticated, login, logout } = useAuth();
 
   // OTP & Signup Flow States
   const [showOtpUI, setShowOtpUI] = useState(false);
   const [otp, setOtp] = useState("");
-  // We store the whole formData (email, pass, etc.) here so we can auto-login later
   const [pendingUser, setPendingUser] = useState(null);
 
-  // 🟢 NEW: States for Order History
-  const [myOrders, setMyOrders] = useState([]);
-  const [loadingOrders, setLoadingOrders] = useState(false);
+  // Order history with live polling (enabled only when logged in).
+  const { data: myOrders = [], isLoading: loadingOrders } =
+    useMyOrders(isAuthenticated);
 
-  // 1. INITIAL LOAD
-  useEffect(() => {
-    const storedToken = localStorage.getItem("token");
-    const storedUser = localStorage.getItem("user");
-    if (storedToken && storedUser) {
-      setToken(storedToken);
-      setUser(JSON.parse(storedUser));
-    }
-  }, []);
-
-  // 🟢 NEW: Fetch Orders Logic (Only runs if user is logged in)
-  const fetchMyOrders = async () => {
-    if (!token) return;
-    setLoadingOrders(true);
-    try {
-      const res = await api.get("/user/orders");
-      setMyOrders(res.data.orders || []);
-    } catch (error) {
-      console.error("Failed to fetch orders");
-    } finally {
-      setLoadingOrders(false);
-    }
-  };
-
-  // 🟢 NEW: Effect to fetch orders on login + Auto-refresh every 10s
-  useEffect(() => {
-    if (token) {
-      fetchMyOrders();
-      const interval = setInterval(fetchMyOrders, 10000); // Live tracking updates
-      return () => clearInterval(interval);
-    }
-  }, [token]);
-
-  // 🟢 NEW: Split orders into "Live" (Active) and "Past" (Completed)
+  // Split orders into "Live" (Active) and "Past" (Completed)
   const liveOrders = myOrders.filter(
-    (o) => o.status !== "Delivered" && o.status !== "Cancelled"
+    (o) => o.status !== "Delivered" && o.status !== "Cancelled",
   );
   const pastOrders = myOrders.filter(
-    (o) => o.status === "Delivered" || o.status === "Cancelled"
+    (o) => o.status === "Delivered" || o.status === "Cancelled",
   );
 
   // 2. HANDLE AUTH FORM SUBMIT
   const handleAuth = async (formData, isLogin) => {
     try {
       if (isLogin) {
-        // Direct Login
         const res = await api.post("/user/signin", formData);
         loginSuccess(res.data);
       } else {
-        // Signup -> Trigger OTP
         const res = await api.post("/user/signup", formData);
         if (res.status === 201) {
-          // Success! Backend created user & logged OTP to console.
-          // Save the user credentials so we can auto-login after verification
           setPendingUser(formData);
           setShowOtpUI(true);
-          alert("OTP sent! ");
+          toast.success("OTP sent! Check the backend console (dev mode).");
         }
       }
     } catch (error) {
-      console.error("Auth Error:", error);
-      alert(error.response?.data?.msg || "Something went wrong!");
+      toast.error(error.response?.data?.msg || "Something went wrong!");
     }
   };
 
-  // 3. HANDLE OTP VERIFICATION (The "Double Jump")
+  // 3. HANDLE OTP VERIFICATION (verify -> auto-login)
   const handleVerifyOtp = async () => {
     try {
-      // Step A: Verify the OTP
       await api.post("/user/verify-otp", {
         email: pendingUser.email,
         otp: otp,
       });
-
-      // Step B: If Verify succeeds, Auto-Login immediately
-      // We use the password we saved in pendingUser
       const loginRes = await api.post("/user/signin", {
         email: pendingUser.email,
         password: pendingUser.password,
       });
-
-      // Step C: Save Token & Finish
       loginSuccess(loginRes.data);
-      alert("Verification Successful! Logging you in...");
+      toast.success("Verification Successful! Logging you in...");
     } catch (error) {
-      console.error("OTP Error:", error);
-      alert(error.response?.data?.msg || "Invalid OTP or Verification Failed");
+      toast.error(error.response?.data?.msg || "Invalid OTP or Verification Failed");
     }
   };
 
-  // Helper: Save data and update state
+  // Helper: persist auth via context, then clean up + route admins to dashboard.
   const loginSuccess = (data) => {
-    localStorage.setItem("token", data.token);
-    localStorage.setItem("user", JSON.stringify(data.user));
-    setToken(data.token);
-    setUser(data.user);
-
-    // Cleanup
+    login(data);
     setShowOtpUI(false);
     setPendingUser(null);
     setOtp("");
-
     if (data.user.role === "admin") navigate("/admin");
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem("token");
-    localStorage.removeItem("user");
-    setToken(null);
-    setUser(null);
-    setMyOrders([]); // 🟢 NEW: Clear orders on logout
-    alert("Logged out successfully");
+  const handleLogout = async () => {
+    await logout();
+    toast.success("Logged out successfully");
   };
 
-  // 🟢 NEW: Reusable Card Component for displaying orders
+  // Reusable Card Component for displaying orders
   const OrderCard = ({ order, isLive }) => (
     <div
       className={`p-4 rounded-xl border mb-3 transition-all ${
@@ -165,7 +109,7 @@ const Accounts = () => {
         </span>
       </div>
       <p className="text-sm text-gray-600 mb-2">
-        {order.items.map((i) => `${i.qty}x ${i.name}`).join(", ")}
+        {order.items.map((i) => `${i.quantity}x ${i.name}`).join(", ")}
       </p>
       <div className="flex justify-between items-center pt-2 border-t border-gray-200/50">
         <span className="font-bold">₹{order.totalAmount}</span>
@@ -178,8 +122,8 @@ const Accounts = () => {
     </div>
   );
 
-  // --- RENDER 1: LOGGED IN PROFILE (UPDATED WITH ORDERS) ---
-  if (token && user) {
+  // --- RENDER 1: LOGGED IN PROFILE ---
+  if (isAuthenticated && user) {
     return (
       <div className="min-h-screen bg-gray-50 p-6 pb-24">
         {/* Profile Header Card */}
@@ -212,7 +156,7 @@ const Accounts = () => {
           </button>
         </div>
 
-        {/* 🟢 NEW: Live Tracking Section */}
+        {/* Live Tracking Section */}
         <div className="max-w-[600px] mx-auto">
           {liveOrders.length > 0 && (
             <div className="mb-8">
@@ -226,7 +170,7 @@ const Accounts = () => {
             </div>
           )}
 
-          {/* 🟢 NEW: Order History Section */}
+          {/* Order History Section */}
           <div>
             <h2 className="text-lg font-bold text-gray-800 mb-4">
               Past Orders

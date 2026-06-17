@@ -1,62 +1,50 @@
 import React, { useState } from "react";
-import api from "../../utils/api"; // Importing our central API helper (Axios)
+import toast from "react-hot-toast";
+import { useAddProduct } from "../../hooks/useAdmin";
 
-// PROPS EXPLAINED:
-// isOpen: A boolean (true/false) that tells this component whether to show up or hide.
-// onClose: A function to set 'isOpen' to false (closes the modal).
-// onProductAdded: A function to refresh the Menu page after we successfully add a dish.
-const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) => {
-  // 1. STATE: This holds the temporary data the user is typing into the form.
-  // We match these keys EXACTLY to your Backend 'Product' model.
+// PROPS:
+// isOpen / onClose: control visibility.
+// onProductAdded: optional callback after a successful add (list auto-refreshes
+//   via React Query cache invalidation, so this is just for extra side effects).
+const AddDishModal = ({ isOpen, onClose, onProductAdded, existingCategories }) => {
   const initialForm = {
     name: "",
     price: "",
-    category: "", // Default selected value
+    category: "",
     image: "",
     description: "",
   };
 
   const [formData, setFormData] = useState(initialForm);
-  const [loading, setLoading] = useState(false); // To show "Adding..." text while waiting
+  const addProduct = useAddProduct();
+  const loading = addProduct.isPending;
 
-  // If the parent says "isOpen is false", we return null so nothing renders on screen.
   if (!isOpen) return null;
 
-  // 2. HANDLER: Updates state whenever the user types in an input box.
-  // We use [e.target.name] to dynamically update the correct field (name, price, etc.)
   const handleChange = (e) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
-  // 3. SUBMIT: The function that runs when you click "Add Dish"
   const handleSubmit = async (e) => {
-    e.preventDefault(); // Prevents the browser from reloading the page (default HTML behavior)
-    setLoading(true); // Start the loading state
-
+    e.preventDefault();
     try {
-      // API CALL: We send a POST request to your specific backend route.
-      // Corresponds to: adminRouter.post("/add_product", ...)
-      await api.post("/admin/add_product", formData);
-
-      alert("Dish Added Successfully! 🥘");
-
-      onProductAdded(); // Step A: Refresh the main list behind the modal
-      setFormData(initialForm); // Step B: Clear the form for the next usage
-      onClose(); // Step C: Close this popup
+      await addProduct.mutateAsync(formData);
+      toast.success("Dish Added Successfully! 🥘");
+      onProductAdded?.();
+      setFormData(initialForm);
+      onClose();
     } catch (error) {
-      console.error(error);
-      alert("Failed to add dish. Check console for details.");
-    } finally {
-      setLoading(false); // Stop loading regardless of success or failure
+      toast.error(
+        error.response?.data?.msg ||
+          error.response?.data?.error ||
+          "Failed to add dish.",
+      );
     }
   };
 
   return (
-    // OVERLAY: The semi-transparent black background covering the whole screen
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 backdrop-blur-sm">
-      {/* MODAL BOX: The white container in the center */}
       <div className="bg-white w-full max-w-lg rounded-2xl p-8 shadow-2xl transform transition-all scale-100">
-        {/* HEADER: Title and Close Button */}
         <div className="flex justify-between items-center mb-6">
           <h2 className="text-2xl font-bold text-gray-800">Add New Dish</h2>
           <button
@@ -67,9 +55,7 @@ const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) =>
           </button>
         </div>
 
-        {/* FORM: The inputs */}
         <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Row 1: Name and Price */}
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
@@ -101,13 +87,11 @@ const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) =>
             </div>
           </div>
 
-          {/* Row 2: Category Dropdown */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Category
             </label>
 
-            {/* Input with 'list' attribute connects to the datalist below */}
             <input
               type="text"
               name="category"
@@ -119,7 +103,6 @@ const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) =>
               className="w-full border border-gray-200 p-3 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
             />
 
-            {/* The Dropdown Options */}
             <datalist id="category-options">
               {existingCategories &&
                 existingCategories.map((cat, index) => (
@@ -131,7 +114,6 @@ const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) =>
             </p>
           </div>
 
-          {/* Row 3: Image Link */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Image URL
@@ -147,7 +129,6 @@ const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) =>
             />
           </div>
 
-          {/* Row 4: Description */}
           <div>
             <label className="block text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
               Description
@@ -162,7 +143,6 @@ const AddDishModal = ({ isOpen, onClose, onProductAdded ,existingCategories}) =>
             ></textarea>
           </div>
 
-          {/* SUBMIT BUTTON */}
           <button
             type="submit"
             disabled={loading}

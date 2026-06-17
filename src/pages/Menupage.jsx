@@ -2,52 +2,31 @@ import { motion } from "framer-motion";
 import React, { useState, useEffect, useMemo } from "react";
 import FoodCard from "../components/FoodCard";
 import { useLocation } from "react-router-dom";
-import api from "../utils/api"; // Your Axios instance
+import { useMenu } from "../hooks/useMenu";
 
 const MenuPage = () => {
   const location = useLocation();
 
-  // 1. STATE
-  const [products, setProducts] = useState([]); // Stores DB data
-  const [loading, setLoading] = useState(true);
+  // 1. DATA — React Query handles loading, caching, retries, dedupe.
+  const { data: products = [], isLoading: loading } = useMenu();
   const [activeCategory, setActiveCategory] = useState("All");
 
-  // 2. FETCH DATA FROM BACKEND
-  useEffect(() => {
-    const fetchMenu = async () => {
-      try {
-        // We use the new PUBLIC route we just created
-        const res = await api.get("/user/menu");
-        setProducts(res.data.products || []);
-        setLoading(false);
-      } catch (error) {
-        console.error("Failed to load menu", error);
-        setLoading(false);
-      }
-    };
-    fetchMenu();
-  }, []);
-
-  // 3. SET INITIAL CATEGORY (From Home Page Click)
+  // 2. SET INITIAL CATEGORY (From Home Page Click)
   useEffect(() => {
     if (location.state && location.state.selectedCategory) {
       setActiveCategory(location.state.selectedCategory);
     }
   }, [location.state]);
 
-  // 4. DYNAMIC CATEGORIES
-  // Extract unique categories from the loaded products
+  // 3. DYNAMIC CATEGORIES — unique categories from the loaded products
   const categories = useMemo(() => {
     if (products.length === 0) return ["All"];
-
     const allCats = products.map((p) => p.category);
-    // Remove duplicates and sort
     const uniqueCats = [...new Set(allCats)].sort();
-
     return ["All", ...uniqueCats];
   }, [products]);
 
-  // 5. FILTER LOGIC
+  // 4. FILTER LOGIC
   const filteredItems =
     activeCategory === "All"
       ? products
