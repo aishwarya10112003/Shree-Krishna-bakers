@@ -346,3 +346,32 @@ shallow ones.
 rate-limited URL shortener, a real-time chat, a job queue, a mini ledger), bake
 in TypeScript + tests + CI + Docker from day one, deploy it to a live URL, and
 write up one tradeoff you made. That combination is rare and hireable.
+
+---
+
+## PART 6 — Delivery & serviceability (the geofence)
+
+This layer brings the app to parity with the live site.
+
+- **Admin-controlled `StoreSettings`** (one singleton row): bakery lat/lng,
+  delivery radius, free-delivery radius, fee rate, and business hours. The
+  radius is **chosen by the admin** — nothing is hard-coded.
+- **Location capture**: the browser **Geolocation API** gives the customer's
+  lat/lng (no map widget, no API key). It's persisted in `localStorage` via
+  `DeliveryContext`, which derives distance/serviceability for every page.
+- **Distance**: the **Haversine** formula ([lib/geo.ts](../backend/src/lib/geo.ts)
+  and its client mirror [src/lib/serviceability.js](../src/lib/serviceability.js)) —
+  straight-line km, perfect for a service-radius check.
+- **Server-authoritative geofence** (same principle as the price fix): at
+  `place-order` the server recomputes distance, rejects anything outside the
+  radius or outside hours, and recomputes the delivery fee. The client greys the
+  button only for UX — `tests/serviceability.test.ts` proves a forged
+  out-of-range order is still rejected.
+- **Distance-based fee**: free within the free-radius, then `base + perKm` beyond
+  it ([lib/serviceability.ts](../backend/src/lib/serviceability.ts)).
+- **Coupons**: a coupon engine with explicit codes and **auto-offers**
+  (e.g. "Flat ₹50 above ₹299"); the server resolves the discount, never the client.
+- **Manual dispatch**: each order carries the customer's location + phone, and
+  admin assigns a rider by name from the Kitchen Board (an "Open in Maps" link
+  uses a plain `google.com/maps?q=lat,lng` URL — still keyless). No live
+  agent-GPS tracking (out of scope by design).

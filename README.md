@@ -24,6 +24,8 @@ runnable on any machine in a few commands.
 | ⚡ **Redis caching** | Read-heavy menu served from a Redis cache-aside layer with invalidation on every write. |
 | 🗑️ **Soft deletes** | Products are archived (not destroyed), so historical orders never break. |
 | 📝 **Audit log** | Every admin mutation is recorded (who, what, when, from where). |
+| 🛵 **Delivery serviceability** | Customer geolocation + Haversine distance; **admin-configurable** delivery radius / fee / hours; out-of-range orders blocked on the client *and* re-checked on the server. |
+| 🎟️ **Offers & content** | Auto/coded coupons, "coming soon" items, a blog, and legal pages — full live-site parity. |
 | ✅ **Tested + CI** | Vitest + Supertest cover the security-critical paths; GitHub Actions runs lint, typecheck, tests, and build. |
 
 ---
