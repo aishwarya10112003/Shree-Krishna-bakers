@@ -13,6 +13,7 @@ describe("Idempotency", () => {
     const body = {
       items: [{ productId: product.id, name: product.name, quantity: 1 }],
       address: "Test St",
+      deliveryType: "DINE_IN",
     };
     const key = "checkout-key-abc-123";
 

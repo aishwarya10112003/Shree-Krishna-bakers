@@ -30,6 +30,16 @@ enum OrderStatus {
   CANCELLED
 }
 
+enum DeliveryType {
+  DELIVERY
+  DINE_IN
+}
+
+enum CouponType {
+  PERCENT
+  FLAT
+}
+
 model User {
   id         String    @id @default(cuid())
   name       String
@@ -58,6 +68,7 @@ model Product {
   description   String?
   isAvailable   Boolean   @default(true)
   isBestseller  Boolean   @default(false)
+  comingSoon    Boolean   @default(false) // shows a "Coming Soon" badge, blocks add
   stockQuantity Int       @default(0)
   deletedAt     DateTime? // soft delete: set instead of physically removing
   createdAt     DateTime  @default(now())
@@ -77,9 +88,21 @@ model Order {
   totalAmount Int // SERVER-computed in whole rupees (never trusted from client)
   address     String
   tableNo     String?
-  status      OrderStatus @default(ORDER_PLACED)
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
+  status      OrderStatus  @default(ORDER_PLACED)
+
+  // Delivery / serviceability — all server-computed & snapshotted at order time.
+  deliveryType  DeliveryType @default(DELIVERY)
+  deliveryLat   Float?
+  deliveryLng   Float?
+  customerPhone String?
+  distanceKm    Float?
+  deliveryFee   Int          @default(0)
+  discount      Int          @default(0)
+  couponCode    String?
+  assignedAgent String? // admin-entered rider name/note (manual dispatch)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   items OrderItem[]
 
@@ -147,4 +170,53 @@ model AuditLog {
 
   @@index([actorId])
   @@index([entity])
+}
+
+// Store-wide settings the ADMIN controls: bakery location, delivery radius,
+// fee config, and business hours. Single row (id = "singleton").
+model StoreSettings {
+  id                    String   @id @default("singleton")
+  bakeryName            String   @default("Shri Krishna Bakers")
+  latitude              Float    @default(26.9124) // Jaipur (overwritten by admin)
+  longitude             Float    @default(75.7873)
+  address               String?
+  deliveryRadiusKm      Float    @default(5) // admin-chosen serviceable radius
+  freeDeliveryRadiusKm  Float    @default(3)
+  baseDeliveryFee       Int      @default(20)
+  perKmFee              Int      @default(6) // per km beyond the free radius
+  openTime              String   @default("10:00") // HH:mm (24h)
+  closeTime             String   @default("22:00")
+  onlineOrderingEnabled Boolean  @default(true)
+  updatedAt             DateTime @updatedAt
+}
+
+// Coupons & auto-offers. "Flat ₹50 off above ₹299" = a FLAT auto coupon.
+model Coupon {
+  id             String     @id @default(cuid())
+  code           String     @unique
+  description    String?
+  type           CouponType
+  value          Int // percent (0-100) or flat rupees
+  minOrderAmount Int        @default(0)
+  maxDiscount    Int? // optional cap for percent coupons
+  isAuto         Boolean    @default(false) // auto-applied when the cart qualifies
+  active         Boolean    @default(true)
+  expiresAt      DateTime?
+  createdAt      DateTime   @default(now())
+
+  @@index([active])
+}
+
+model BlogPost {
+  id         String   @id @default(cuid())
+  slug       String   @unique
+  title      String
+  excerpt    String?
+  content    String // markdown/plain text
+  coverImage String?
+  published  Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([published, createdAt])
 }

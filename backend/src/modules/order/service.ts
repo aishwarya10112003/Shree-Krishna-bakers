@@ -1,22 +1,56 @@
 import { prisma } from "../../db/prisma";
 import { ApiError } from "../../lib/ApiError";
 import { serializeOrder } from "../../lib/serialize";
+import { getStoreSettings } from "../store/service";
+import { evaluateServiceability } from "../../lib/serviceability";
+import { resolveDiscount } from "../coupon/service";
 import type { PlaceOrderInput } from "./schemas";
 
 /**
- * Place an order — the security & correctness centerpiece.
+ * Place an order — security & correctness centerpiece.
  *
- * Everything runs inside ONE database transaction (all-or-nothing). For each
- * line we:
- *   1. Recompute the price from the DB (the source of truth) — the client's
- *      price is never trusted. This kills price-tampering.
- *   2. Atomically check-and-decrement stock with a conditional UPDATE
- *      (`WHERE stockQuantity >= qty`). Under concurrent checkouts for the last
- *      unit, exactly one UPDATE matches → no overselling, no race condition.
+ *  1. Serviceability (DELIVERY only): the bakery location, radius, hours and fee
+ *     all come from admin-controlled StoreSettings; the server re-checks the
+ *     customer is inside the radius and within hours, and recomputes the fee.
+ *  2. One transaction: recompute item prices from the DB (no client trust),
+ *     atomically check-and-decrement stock (no oversell), apply coupon/auto-offer.
  */
 export async function placeOrder(userId: string, input: PlaceOrderInput) {
+  const deliveryType = input.deliveryType ?? "DELIVERY";
+
+  let distanceKm: number | null = null;
+  let deliveryFee = 0;
+
+  if (deliveryType === "DELIVERY") {
+    if (input.deliveryLat == null || input.deliveryLng == null) {
+      throw ApiError.badRequest("Please add your delivery location.");
+    }
+    if (!input.phone) {
+      throw ApiError.badRequest("A phone number is required for delivery.");
+    }
+
+    const settings = await getStoreSettings();
+    if (!settings.onlineOrderingEnabled) {
+      throw ApiError.badRequest("Online ordering is currently disabled.");
+    }
+
+    const s = evaluateServiceability(settings, input.deliveryLat, input.deliveryLng);
+    if (!s.withinHours) {
+      throw ApiError.badRequest(
+        `We're closed right now. Orders are served between ${settings.openTime} and ${settings.closeTime}.`,
+      );
+    }
+    if (!s.serviceable) {
+      throw ApiError.badRequest(
+        `We are not serviceable in your area. We currently deliver up to ${settings.deliveryRadiusKm} km from the bakery (your distance: ${s.distanceKm} km).`,
+      );
+    }
+    distanceKm = s.distanceKm;
+    deliveryFee = s.deliveryFee;
+  }
+
   const order = await prisma.$transaction(async (tx) => {
-    let total = 0;
+    let itemTotal = 0;
     const lineItems: {
       productId: string;
       name: string;
@@ -26,12 +60,10 @@ export async function placeOrder(userId: string, input: PlaceOrderInput) {
     }[] = [];
 
     for (const item of input.items) {
-      // findFirst goes through the soft-delete filter, so deleted products read as gone.
       const product = await tx.product.findFirst({ where: { id: item.productId } });
-      if (!product || !product.isAvailable) {
+      if (!product || !product.isAvailable || product.comingSoon) {
         throw ApiError.badRequest(`"${item.name}" is no longer available`);
       }
-
       const updated = await tx.product.updateMany({
         where: { id: product.id, stockQuantity: { gte: item.quantity } },
         data: { stockQuantity: { decrement: item.quantity } },
@@ -39,8 +71,7 @@ export async function placeOrder(userId: string, input: PlaceOrderInput) {
       if (updated.count === 0) {
         throw ApiError.badRequest(`Not enough stock for "${product.name}"`);
       }
-
-      total += product.price * item.quantity; // SERVER price, not client price
+      itemTotal += product.price * item.quantity; // SERVER price
       lineItems.push({
         productId: product.id,
         name: product.name,
@@ -50,12 +81,24 @@ export async function placeOrder(userId: string, input: PlaceOrderInput) {
       });
     }
 
+    // Coupon (explicit code) or best auto-offer, applied to the item subtotal.
+    const { code, discount } = await resolveDiscount(itemTotal, input.couponCode);
+    const totalAmount = Math.max(0, itemTotal + deliveryFee - discount);
+
     return tx.order.create({
       data: {
         userId,
-        totalAmount: total,
+        totalAmount,
         address: input.address,
         tableNo: input.tableNo ?? "",
+        deliveryType,
+        deliveryLat: input.deliveryLat ?? null,
+        deliveryLng: input.deliveryLng ?? null,
+        customerPhone: input.phone ?? null,
+        distanceKm,
+        deliveryFee,
+        discount,
+        couponCode: code,
         items: { create: lineItems },
       },
       include: { items: true },

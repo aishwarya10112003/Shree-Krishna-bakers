@@ -11,6 +11,9 @@ export async function resetDb() {
   await prisma.refreshToken.deleteMany();
   await prisma.product.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.coupon.deleteMany();
+  await prisma.blogPost.deleteMany();
+  await prisma.storeSettings.deleteMany();
 }
 
 /** Create a user and return it together with a ready-to-use access token. */
@@ -52,4 +55,49 @@ export async function makeProduct(
       isAvailable: opts.available ?? true,
     },
   });
+}
+
+/** Upsert the singleton StoreSettings with test-friendly defaults (always-open,
+ *  bakery at 0,0) merged with overrides. */
+export async function setStoreSettings(
+  overrides: Partial<{
+    latitude: number;
+    longitude: number;
+    deliveryRadiusKm: number;
+    freeDeliveryRadiusKm: number;
+    baseDeliveryFee: number;
+    perKmFee: number;
+    openTime: string;
+    closeTime: string;
+    onlineOrderingEnabled: boolean;
+  }> = {},
+) {
+  const base = {
+    latitude: 0,
+    longitude: 0,
+    deliveryRadiusKm: 5,
+    freeDeliveryRadiusKm: 3,
+    baseDeliveryFee: 20,
+    perKmFee: 6,
+    openTime: "00:00",
+    closeTime: "23:59",
+    onlineOrderingEnabled: true,
+    ...overrides,
+  };
+  return prisma.storeSettings.upsert({
+    where: { id: "singleton" },
+    update: base,
+    create: { id: "singleton", ...base },
+  });
+}
+
+export async function makeCoupon(data: {
+  code: string;
+  type: "PERCENT" | "FLAT";
+  value: number;
+  minOrderAmount?: number;
+  maxDiscount?: number;
+  isAuto?: boolean;
+}) {
+  return prisma.coupon.create({ data });
 }

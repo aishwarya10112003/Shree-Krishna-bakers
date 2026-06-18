@@ -8,3 +8,9 @@ export const orderStatusSchema = z.object({
 });
 
 export type OrderStatusInput = z.infer<typeof orderStatusSchema>;
+
+export const assignAgentSchema = z.object({
+  agent: z.string().min(1, "Agent name is required").max(80),
+});
+
+export type AssignAgentInput = z.infer<typeof assignAgentSchema>;

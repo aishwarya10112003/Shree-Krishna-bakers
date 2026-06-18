@@ -18,6 +18,7 @@ describe("Stock concurrency", () => {
         .send({
           items: [{ productId: product.id, name: product.name, quantity: 1 }],
           address: "Test St",
+          deliveryType: "DINE_IN",
         });
 
     // Fire 5 checkouts for the last unit simultaneously.

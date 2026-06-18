@@ -22,6 +22,9 @@ async function main() {
   await prisma.refreshToken.deleteMany();
   await prisma.product.deleteMany();
   await prisma.user.deleteMany();
+  await prisma.coupon.deleteMany();
+  await prisma.blogPost.deleteMany();
+  await prisma.storeSettings.deleteMany();
 
   // 2. Users (passwords are bcrypt-hashed, never plaintext).
   const customerHash = await bcrypt.hash("Password@123", 10);
@@ -59,6 +62,7 @@ async function main() {
     image: string;
     description?: string;
     isBestseller?: boolean;
+    comingSoon?: boolean;
   };
 
   const productSeeds: Seed[] = [
@@ -71,7 +75,7 @@ async function main() {
     { name: "Margherita Pizza", price: 220, category: "Pizza", image: "🍕" },
     { name: "Farmhouse Pizza", price: 300, category: "Pizza", image: "🍕" },
     { name: "Black Forest Cake", price: 500, category: "Cake", image: "🎂" },
-    { name: "Red Velvet Pastry", price: 90, category: "Cake", image: "🧁" },
+    { name: "Red Velvet Pastry", price: 90, category: "Cake", image: "🧁", comingSoon: true },
     { name: "Veg Burger", price: 110, category: "Burger", image: "🍔" },
     { name: "Aloo Sandwich", price: 60, category: "Sandwich", image: "🥪" },
     { name: "Veg Manchurian", price: 150, category: "Chinese", image: "🥡" },
@@ -83,7 +87,7 @@ async function main() {
     { name: "Veg Roll", price: 90, category: "Rolls", image: "🌯" },
     { name: "Cold Coffee", price: 110, category: "Shakes", image: "🥤" },
     { name: "Chocolate Shake", price: 130, category: "Shakes", image: "🥤" },
-    { name: "Virgin Mojito", price: 100, category: "Mocktails", image: "🍹" },
+    { name: "Virgin Mojito", price: 100, category: "Mocktails", image: "🍹", comingSoon: true },
   ];
 
   const products = await Promise.all(
@@ -97,6 +101,7 @@ async function main() {
           description: p.description ?? `Delicious ${p.name}.`,
           isAvailable: true,
           isBestseller: p.isBestseller ?? false,
+          comingSoon: p.comingSoon ?? false,
           stockQuantity: 50,
         },
       }),
@@ -147,9 +152,44 @@ async function main() {
     orderCount++;
   }
 
+  // 5. Store settings (admin-controlled bakery location + radius + hours).
+  await prisma.storeSettings.create({
+    data: {
+      id: "singleton",
+      bakeryName: "Shri Krishna Bakers",
+      latitude: 26.9124,
+      longitude: 75.7873,
+      address: "Jaipur, Rajasthan",
+      deliveryRadiusKm: 5,
+      freeDeliveryRadiusKm: 3,
+      baseDeliveryFee: 20,
+      perKmFee: 6,
+      openTime: "10:00",
+      closeTime: "22:00",
+      onlineOrderingEnabled: true,
+    },
+  });
+
+  // 6. Coupons (incl. the "Flat ₹50 above ₹299" auto-offer) and blog posts.
+  await prisma.coupon.createMany({
+    data: [
+      { code: "FLAT50", description: "Flat ₹50 off on orders above ₹299", type: "FLAT", value: 50, minOrderAmount: 299, isAuto: true },
+      { code: "WELCOME10", description: "10% off (up to ₹100), min order ₹199", type: "PERCENT", value: 10, maxDiscount: 100, minOrderAmount: 199 },
+    ],
+  });
+
+  await prisma.blogPost.createMany({
+    data: [
+      { slug: "freshly-baked-every-morning", title: "Freshly Baked Every Morning", excerpt: "How our day starts before sunrise to bring you the freshest bakes.", content: "At Shri Krishna Bakers, every morning begins before sunrise. Our bakers knead, prove, and bake so that the first customer of the day gets a loaf still warm from the oven." },
+      { slug: "the-story-behind-our-cakes", title: "The Story Behind Our Cakes", excerpt: "From classic black forest to custom celebration cakes.", content: "Every cake tells a story. We use the finest cocoa, fresh cream, and seasonal fruit to craft cakes worth celebrating." },
+      { slug: "now-delivering-near-you", title: "Now Delivering Near You", excerpt: "Hot and fresh, delivered within our service area.", content: "Share your location at checkout to see if you're within our delivery radius — if you are, your order is on its way, hot and fresh." },
+    ],
+  });
+
   console.log(
     `✅ Seeded: 1 admin, ${customers.length} customers, ${products.length} products, ${orderCount} orders`,
   );
+  console.log("   + store settings (radius 5 km), 2 coupons, 3 blog posts");
   console.log(`   Admin    → admin@krishna.test / Admin@123  (id: ${admin.id})`);
   console.log("   Customer → aarav@test.com / Password@123");
 }

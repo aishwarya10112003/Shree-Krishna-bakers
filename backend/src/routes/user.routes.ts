@@ -6,6 +6,9 @@ import { idempotency } from "../middleware/idempotency";
 import * as authController from "../modules/auth/controller";
 import * as productController from "../modules/product/controller";
 import * as orderController from "../modules/order/controller";
+import * as storeController from "../modules/store/controller";
+import * as couponController from "../modules/coupon/controller";
+import * as blogController from "../modules/blog/controller";
 import { signinSchema, signupSchema, verifyOtpSchema } from "../modules/auth/schemas";
 import { placeOrderSchema } from "../modules/order/schemas";
 
@@ -30,6 +33,10 @@ userRouter.post("/logout", authController.logout);
 // ── Public catalog ──
 userRouter.get("/menu", productController.getMenu);
 userRouter.get("/bestsellers", productController.getBestsellers);
+userRouter.get("/store-settings", storeController.getSettings);
+userRouter.get("/coupons", couponController.listPublic);
+userRouter.get("/blogs", blogController.list);
+userRouter.get("/blogs/:slug", blogController.getOne);
 
 // ── Orders (auth required) ──
 // validate BEFORE idempotency so we never reserve a key for an invalid request.

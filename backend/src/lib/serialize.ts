@@ -42,6 +42,7 @@ export function serializeProduct(p: Product) {
     description: p.description,
     isAvailable: p.isAvailable,
     isBestseller: p.isBestseller,
+    comingSoon: p.comingSoon,
     stockQuantity: p.stockQuantity,
     createdAt: p.createdAt,
   };
@@ -70,6 +71,15 @@ export function serializeOrder(o: OrderWithRelations) {
     totalAmount: o.totalAmount,
     address: o.address,
     tableNo: o.tableNo ?? "",
+    deliveryType: o.deliveryType,
+    deliveryLat: o.deliveryLat,
+    deliveryLng: o.deliveryLng,
+    phone: o.customerPhone,
+    distanceKm: o.distanceKm,
+    deliveryFee: o.deliveryFee,
+    discount: o.discount,
+    couponCode: o.couponCode,
+    assignedAgent: o.assignedAgent,
     createdAt: o.createdAt,
     items: o.items ? o.items.map(serializeOrderItem) : [],
     // Admin endpoints populate the customer; otherwise just the id string.

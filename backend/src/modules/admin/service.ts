@@ -38,6 +38,24 @@ export async function updateOrderStatus(
   return serializeOrder(order);
 }
 
+/** Manually assign a delivery agent (admin types the rider's name/note). */
+export async function assignAgent(orderId: string, agent: string, ctx: ActorCtx) {
+  const order = await prisma.order.update({
+    where: { id: orderId },
+    data: { assignedAgent: agent },
+    include: { items: true, user: true },
+  });
+  await audit({
+    actorId: ctx.actorId,
+    action: "order.assign_agent",
+    entity: "Order",
+    entityId: orderId,
+    metadata: { agent },
+    ip: ctx.ip,
+  });
+  return serializeOrder(order);
+}
+
 /**
  * Dashboard analytics. Fixes the original "last 7 days" bug (it returned the
  * OLDEST 7 days). Here we bucket by day across a real rolling 7-day window and

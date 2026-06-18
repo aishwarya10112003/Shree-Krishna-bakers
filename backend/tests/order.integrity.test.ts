@@ -20,6 +20,7 @@ describe("Order price integrity", () => {
         ],
         totalAmount: 1, // ...and a tampered total.
         address: "Test St",
+        deliveryType: "DINE_IN",
       });
 
     expect(res.status).toBe(201);
@@ -38,6 +39,7 @@ describe("Order price integrity", () => {
       .send({
         items: [{ productId: product.id, name: product.name, quantity: 1 }],
         address: "Test St",
+        deliveryType: "DINE_IN",
       });
 
     expect(res.status).toBe(400);

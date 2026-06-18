@@ -23,3 +23,12 @@ export const updateOrderStatus = asyncHandler(async (req, res) => {
 export const getAnalytics = asyncHandler(async (_req, res) => {
   res.json(await adminService.analytics());
 });
+
+export const assignAgent = asyncHandler(async (req, res) => {
+  const order = await adminService.assignAgent(
+    req.params.orderId as string,
+    req.body.agent,
+    buildCtx(req),
+  );
+  res.json({ message: "Agent assigned", order });
+});

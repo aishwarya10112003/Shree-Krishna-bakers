@@ -16,8 +16,14 @@ const orderItemSchema = z.object({
 export const placeOrderSchema = z.object({
   items: z.array(orderItemSchema).min(1, "At least one item required"),
   totalAmount: z.coerce.number().optional(), // ignored server-side (recomputed)
-  address: z.string().min(1, "Address is required").max(200),
+  address: z.string().min(1, "Address is required").max(300),
   tableNo: z.string().max(20).optional(),
+  // Delivery / serviceability — required for DELIVERY orders (enforced in service).
+  deliveryType: z.enum(["DELIVERY", "DINE_IN"]).optional(),
+  deliveryLat: z.coerce.number().min(-90).max(90).optional(),
+  deliveryLng: z.coerce.number().min(-180).max(180).optional(),
+  phone: z.string().max(20).optional(),
+  couponCode: z.string().max(30).optional(),
 });
 
 export type PlaceOrderInput = z.infer<typeof placeOrderSchema>;
