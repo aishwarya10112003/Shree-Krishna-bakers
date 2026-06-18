@@ -64,3 +64,40 @@ export const useAddProduct = () => {
     },
   });
 };
+
+// ── Store settings ──
+export const useUpdateStoreSettings = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.put("/admin/store-settings", payload)).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["storeSettings"] }),
+  });
+};
+
+// ── Coupons ──
+export const useAdminCoupons = () =>
+  useQuery({
+    queryKey: ["adminCoupons"],
+    queryFn: async () => (await api.get("/admin/coupons")).data.coupons,
+  });
+
+export const useCreateCoupon = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload) => (await api.post("/admin/coupons", payload)).data,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["adminCoupons"] });
+      qc.invalidateQueries({ queryKey: ["coupons"] });
+    },
+  });
+};
+
+// ── Manual agent assignment ──
+export const useAssignAgent = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ orderId, agent }) =>
+      (await api.put(`/admin/order/${orderId}/assign-agent`, { agent })).data,
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["adminOrders"] }),
+  });
+};

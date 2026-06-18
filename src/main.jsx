@@ -5,6 +5,7 @@ import { Toaster } from "react-hot-toast";
 import "./index.css";
 import App from "./App.jsx";
 import { AuthProvider } from "./context/AuthContext.jsx";
+import { DeliveryProvider } from "./context/DeliveryContext.jsx";
 import ErrorBoundary from "./components/ErrorBoundary.jsx";
 import { queryClient } from "./lib/queryClient.js";
 
@@ -13,7 +14,9 @@ createRoot(document.getElementById("root")).render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <App />
+          <DeliveryProvider>
+            <App />
+          </DeliveryProvider>
         </AuthProvider>
         {/* Toast notifications (used app-wide; KitchenBoard already relied on this). */}
         <Toaster position="top-center" />

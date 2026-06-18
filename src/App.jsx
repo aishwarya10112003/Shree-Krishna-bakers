@@ -16,6 +16,12 @@ import MenuManagement from "./admin/pages/MenuManage"; // 👈 The Real Componen
 import KitchenBoard from "./admin/pages/KitchenBoard";
 import SaleAnalatics from "./admin/pages/Analytics";
 import ProtectedRoute from "./components/ProtectedRoute";
+import Blogs from "./pages/Blogs";
+import BlogPostPage from "./pages/BlogPostPage";
+import StaticPage from "./pages/StaticPage";
+import SiteFooter from "./components/SiteFooter";
+import StoreSettings from "./admin/pages/StoreSettings";
+import Coupons from "./admin/pages/Coupons";
 import "./App.css";
 
 
@@ -34,6 +40,13 @@ function AnimatedRoutes() {
         <Route path="/menu" element={<MenuPage />} />
         <Route path="/cart" element={<CartPage />} />
         <Route path="/account" element={<Account />} />
+        <Route path="/blogs" element={<Blogs />} />
+        <Route path="/blogs/:slug" element={<BlogPostPage />} />
+        <Route path="/about" element={<StaticPage page="about" />} />
+        <Route path="/contact" element={<StaticPage page="contact" />} />
+        <Route path="/privacy" element={<StaticPage page="privacy" />} />
+        <Route path="/refund" element={<StaticPage page="refund" />} />
+        <Route path="/terms" element={<StaticPage page="terms" />} />
         {/* ADMIN ROUTES - PROTECTED */}
         <Route
           path="/admin"
@@ -57,6 +70,8 @@ function AnimatedRoutes() {
           <Route path="menu" element={<MenuManagement />} />
           <Route path="kitchen" element={<KitchenBoard />} />
           <Route path="analytics" element={<SaleAnalatics />} />
+          <Route path="settings" element={<StoreSettings />} />
+          <Route path="coupons" element={<Coupons />} />
         </Route>
       </Routes>
     </AnimatePresence>
@@ -70,7 +85,12 @@ const ConditionalFooter = () => {
     return null;
   }
 
-  return <Footer />;
+  return (
+    <>
+      <SiteFooter />
+      <Footer />
+    </>
+  );
 };
 
 function App() {

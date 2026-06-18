@@ -239,7 +239,7 @@ const Accounts = () => {
     <div className="min-h-screen bg-gray-50 flex flex-col items-center justify-center p-4">
       <div className="text-center mb-6">
         <h1 className="text-3xl font-bold text-gray-900">
-          Shree Krishna <span className="text-orange-600">Bakers</span>
+          Shri Krishna <span className="text-orange-600">Bakers</span>
         </h1>
         <p className="text-gray-500 text-sm mt-1">
           Taste the tradition, feel the love.

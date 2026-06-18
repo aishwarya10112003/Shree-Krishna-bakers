@@ -1,18 +1,22 @@
 import React from "react";
 import { useCart } from "../context/CartContext";
+import { useDelivery } from "../context/DeliveryContext";
+import { useAuth } from "../context/AuthContext";
 
 const FoodCard = ({ item }) => {
   const { addToCart, removeFromCart, cartItems } = useCart();
+  const { serviceable, withinHours } = useDelivery();
+  const { isAdmin } = useAuth();
 
-  // 🟢 FIX 1: Normalize the ID
-  // MongoDB items have '_id'. We check for both to be safe.
   const itemId = item._id || item.id;
-
-  // 🟢 FIX 2: Use the normalized 'itemId' for finding
   const cartItem = cartItems.find((i) => i.id === itemId);
   const quantity = cartItem ? cartItem.quantity : 0;
 
-  // Helper for rendering Image vs Emoji
+  const comingSoon = Boolean(item.comingSoon);
+  // Admins (in-store POS / dine-in) bypass the delivery geofence.
+  const geofenceBlocked = !isAdmin && (!serviceable || !withinHours);
+  const blocked = comingSoon || geofenceBlocked;
+
   const renderImage = (imgString) => {
     if (!imgString) return "🍽️";
     if (imgString.startsWith("http")) {
@@ -24,7 +28,7 @@ const FoodCard = ({ item }) => {
         />
       );
     }
-    return imgString; // It's an emoji
+    return imgString; // emoji
   };
 
   return (
@@ -36,15 +40,34 @@ const FoodCard = ({ item }) => {
         </div>
 
         <div>
-          <h3 className="font-bold text-gray-800">{item.name}</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-gray-800">{item.name}</h3>
+            {comingSoon && (
+              <span className="bg-yellow-100 text-yellow-700 text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide">
+                Coming Soon
+              </span>
+            )}
+          </div>
           <p className="text-xs text-gray-400 capitalize">{item.category}</p>
           <p className="text-lg font-bold text-gray-900 mt-1">₹{item.price}</p>
+          {blocked && (
+            <p className="text-xs text-orange-600 mt-1">
+              {comingSoon ? "Coming soon" : "We are not serviceable in your area"}
+            </p>
+          )}
         </div>
       </div>
 
       {/* Interactive Add Section */}
       <div className="min-w-[100px] flex justify-end">
-        {quantity === 0 ? (
+        {blocked ? (
+          <button
+            disabled
+            className="px-5 py-2 bg-gray-100 text-gray-400 font-bold rounded-lg cursor-not-allowed"
+          >
+            BLOCKED
+          </button>
+        ) : quantity === 0 ? (
           <button
             onClick={() => addToCart(item)}
             className="px-6 py-2 border border-orange-200 text-orange-600 font-bold rounded-lg bg-orange-50 hover:bg-orange-100 transition-all"
@@ -53,11 +76,7 @@ const FoodCard = ({ item }) => {
           </button>
         ) : (
           <div className="flex items-center justify-between w-24 px-2 py-1 bg-orange-50 border border-orange-100 rounded-lg text-orange-600 font-bold">
-            <button
-              // 🟢 FIX 3: Use normalized 'itemId' when removing
-              onClick={() => removeFromCart(itemId)}
-              className="text-xl px-2"
-            >
+            <button onClick={() => removeFromCart(itemId)} className="text-xl px-2">
               -
             </button>
             <span>{quantity}</span>

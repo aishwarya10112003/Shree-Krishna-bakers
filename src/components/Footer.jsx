@@ -1,5 +1,5 @@
 import React from "react";
-import { Home, UtensilsCrossed,  User, ShoppingBag } from "lucide-react";
+import { Home, UtensilsCrossed, FileText, User, ShoppingBag } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
 
@@ -9,6 +9,7 @@ const Footer = () => {
  const navItems = [
     { name: "Home", icon: Home, path: "/" }, // Added 'path' to match App.jsx
     { name: "Menu", icon: UtensilsCrossed, path: "/menu" },
+    { name: "Blogs", icon: FileText, path: "/blogs" },
     { name: "cart", icon: ShoppingBag, path: "/cart" },
     { name: "Account", icon: User, path: "/account" },
   ];

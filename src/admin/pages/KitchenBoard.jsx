@@ -1,10 +1,42 @@
-import React from "react";
+import React, { useState } from "react";
 import toast from "react-hot-toast";
-import { useAdminOrders, useUpdateOrderStatus } from "../../hooks/useAdmin";
+import {
+  useAdminOrders,
+  useUpdateOrderStatus,
+  useAssignAgent,
+} from "../../hooks/useAdmin";
 
 // SOUND URL
 const ALERT_SOUND =
   "https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3";
+
+// Manual delivery-agent assignment (no live tracking — admin dispatches a rider).
+const AgentAssign = ({ order }) => {
+  const assign = useAssignAgent();
+  const [name, setName] = useState(order.assignedAgent || "");
+  return (
+    <div className="flex gap-2 mt-1">
+      <input
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder="Assign delivery agent"
+        className="border border-gray-200 rounded px-2 py-1 text-xs flex-1"
+      />
+      <button
+        onClick={() =>
+          name.trim() &&
+          assign.mutate(
+            { orderId: order._id, agent: name.trim() },
+            { onSuccess: () => toast.success("Agent assigned") },
+          )
+        }
+        className="bg-gray-800 text-white text-xs px-3 py-1 rounded font-bold"
+      >
+        Save
+      </button>
+    </div>
+  );
+};
 
 const KitchenBoard = () => {
   // Live data via React Query (auto-refetch every 10s, pauses on hidden tabs).
@@ -82,6 +114,27 @@ const KitchenBoard = () => {
             </div>
           ))}
         </div>
+        {order.deliveryType !== "DINE_IN" && (
+          <div className="mb-3 text-xs text-gray-500 space-y-1 border-t border-gray-50 pt-2">
+            {order.phone && <p>📞 {order.phone}</p>}
+            {order.distanceKm != null && (
+              <p>
+                📍 {order.distanceKm} km away · fee ₹{order.deliveryFee}
+              </p>
+            )}
+            {order.deliveryLat != null && (
+              <a
+                href={`https://www.google.com/maps?q=${order.deliveryLat},${order.deliveryLng}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-blue-600 font-bold inline-block"
+              >
+                Open in Maps ↗
+              </a>
+            )}
+            <AgentAssign order={order} />
+          </div>
+        )}
         <div className="flex justify-between items-center pt-3 border-t border-gray-50">
           <button
             onClick={() => handleStatusUpdate(order._id, nextStatus)}

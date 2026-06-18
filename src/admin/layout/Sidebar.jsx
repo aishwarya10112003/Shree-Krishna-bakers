@@ -4,10 +4,11 @@ import { Link, useLocation } from "react-router-dom";
 // 1. We define our navigation items here to keep the code clean.
 // If you want to add a new page later, just add it to this list.
 const NAV_ITEMS = [
-  { path: "/admin/menu", label: "Menu Management"},
+  { path: "/admin/menu", label: "Menu Management" },
   { path: "/admin/kitchen", label: "Kitchen Board" },
   { path: "/admin/analytics", label: "Sales Analytics" },
-  
+  { path: "/admin/settings", label: "Store Settings" },
+  { path: "/admin/coupons", label: "Coupons" },
 ];
 
 const Sidebar = () => {
@@ -19,7 +20,7 @@ const Sidebar = () => {
       {/* --- A. LOGO SECTION --- */}
       <div className="p-8 pb-6">
         <h1 className="text-xl font-extrabold text-gray-800 tracking-tight">
-          Shree Krishna
+          Shri Krishna
         </h1>
         <p className="text-xs font-bold text-orange-500 uppercase tracking-widest mt-1">
           Bakers & Restaurant

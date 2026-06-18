@@ -1,6 +1,16 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Force a light canvas so OS/browser dark mode never bleeds a black
+   background through gaps between sections (e.g. above the site footer). */
+html,
+body,
+#root {
+  background-color: #f9fafb; /* gray-50 */
+  color-scheme: light;
+}
+
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

@@ -5,8 +5,8 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
   server: {
-    port: parseInt(process.env.VITE_PORT || '5173', 10),
+    port: parseInt(process.env.VITE_PORT || '5180', 10),
     host: true, // Listen on all addresses
-    strictPort: false, // Allow port fallback if specified port is in use
+    strictPort: true, // Fixed port so we never collide with other local projects
   },
 })
