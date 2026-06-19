@@ -6,3 +6,7 @@ node_modules/
 dist/
 build/
 .claude/
+
+# Personal reference docs — kept local, not published
+docs/ARCHITECTURE.md
+docs/LEARNINGS.md
